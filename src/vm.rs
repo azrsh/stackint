@@ -146,3 +146,22 @@ pub fn interpret<W: io::Write>(w: &mut W, source: String) {
         1,
     );
 }
+
+#[cfg(test)]
+mod tests {
+    use super::interpret;
+    #[test]
+    fn add() {
+        let mut buf = Vec::<u8>::new();
+        interpret(
+            &mut buf,
+            "push 1\n\
+            push 2\n\
+            add\n\
+            call 0\n\
+            halt\n"
+                .to_string(),
+        );
+        assert_eq!(buf, b"3\n");
+    }
+}

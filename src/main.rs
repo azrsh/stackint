@@ -12,22 +12,3 @@ fn main() {
     let mut stdout = stdout.lock();
     vm::interpret(&mut stdout, contents);
 }
-
-#[cfg(test)]
-mod tests {
-    use crate::vm;
-    #[test]
-    fn add() {
-        let mut buf = Vec::<u8>::new();
-        vm::interpret(
-            &mut buf,
-            "push 1\n\
-            push 2\n\
-            add\n\
-            call 0\n\
-            halt\n"
-                .to_string(),
-        );
-        assert_eq!(buf, b"3\n");
-    }
-}
