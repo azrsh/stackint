@@ -9,6 +9,7 @@ struct RuntimeContext<'a, W: io::Write> {
     function_history: &'a mut VecDeque<u32>,
     variables: &'a mut HashMap<String, i32>,
     function_table: &'a HashMap<u32, Function<'a, W>>,
+    line_num: usize,
 }
 
 enum Function<'a, W: io::Write> {
@@ -76,47 +77,50 @@ fn halt() {
     process::exit(0);
 }
 
+fn interpret_instruction<W: io::Write>(ctx: &mut RuntimeContext<W>, instruction: &str) {
+    let line: Vec<&str> = instruction.trim().split_whitespace().collect();
+
+    if line[0] == "push" {
+        let i = line[1].parse::<i32>().unwrap();
+        push(ctx.stack, i);
+    } else if line[0] == "pop" {
+        pop(ctx.stack);
+    } else if line[0] == "jump" {
+        let i = line[1].parse::<i32>().unwrap();
+        jump(&mut ctx.line_num, i);
+    } else if line[0] == "jumpif" {
+        let i = line[1].parse::<i32>().unwrap();
+        jumpif(ctx.stack, &mut ctx.line_num, i);
+    } else if line[0] == "add" {
+        add(ctx.stack);
+    } else if line[0] == "sub" {
+        sub(ctx.stack);
+    } else if line[0] == "mul" {
+        mul(ctx.stack);
+    } else if line[0] == "set" {
+        set(ctx.stack, ctx.variables, line[1].to_string());
+    } else if line[0] == "get" {
+        get(ctx.stack, ctx.variables, line[1].to_string());
+    } else if line[0] == "call" {
+        let id = line[1].parse::<u32>().unwrap();
+        call(ctx, id);
+    } else if line[0] == "ret" {
+        ret(ctx.function_history);
+        return;
+    } else if line[0] == "halt" {
+        halt();
+    } else {
+        panic!("Unkown code");
+    }
+}
+
 fn interpret_function<W: io::Write>(ctx: &mut RuntimeContext<W>, source: &str) {
     let lines = source.split('\n').collect::<Vec<&str>>();
-    let mut line_num = 0;
-    while line_num < lines.len() {
-        let line = lines[line_num];
-        line_num += 1;
+    while ctx.line_num < lines.len() {
+        let line = lines[ctx.line_num];
+        ctx.line_num += 1;
 
-        let line: Vec<&str> = line.trim().split_whitespace().collect();
-
-        if line[0] == "push" {
-            let i = line[1].parse::<i32>().unwrap();
-            push(ctx.stack, i);
-        } else if line[0] == "pop" {
-            pop(ctx.stack);
-        } else if line[0] == "jump" {
-            let i = line[1].parse::<i32>().unwrap();
-            jump(&mut line_num, i);
-        } else if line[0] == "jumpif" {
-            let i = line[1].parse::<i32>().unwrap();
-            jumpif(ctx.stack, &mut line_num, i);
-        } else if line[0] == "add" {
-            add(ctx.stack);
-        } else if line[0] == "sub" {
-            sub(ctx.stack);
-        } else if line[0] == "mul" {
-            mul(ctx.stack);
-        } else if line[0] == "set" {
-            set(ctx.stack, ctx.variables, line[1].to_string());
-        } else if line[0] == "get" {
-            get(ctx.stack, ctx.variables, line[1].to_string());
-        } else if line[0] == "call" {
-            let id = line[1].parse::<u32>().unwrap();
-            call(ctx, id);
-        } else if line[0] == "ret" {
-            ret(ctx.function_history);
-            return;
-        } else if line[0] == "halt" {
-            halt();
-        } else {
-            panic!("Unkown code");
-        }
+        interpret_instruction(ctx, line);
     }
 }
 
@@ -142,6 +146,7 @@ pub fn interpret<W: io::Write>(w: &mut W, source: String) {
             function_history: &mut function_history,
             variables: &mut variables,
             function_table: &function_table,
+            line_num: 0,
         },
         1,
     );
@@ -161,7 +166,7 @@ mod tests {
             call 0
             halt
             "#
-                .to_string(),
+            .to_string(),
         );
         assert_eq!(buf, b"3\n");
     }
