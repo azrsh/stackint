@@ -83,7 +83,7 @@ fn interpret_function<W: io::Write>(ctx: &mut RuntimeContext<W>, source: &str) {
         let line = lines[line_num];
         line_num += 1;
 
-        let line: Vec<&str> = line.trim_end().split(' ').collect();
+        let line: Vec<&str> = line.trim().split(' ').collect();
 
         if line[0] == "push" {
             let i = line[1].parse::<i32>().unwrap();
@@ -155,11 +155,12 @@ mod tests {
         let mut buf = Vec::<u8>::new();
         interpret(
             &mut buf,
-            "push 1\n\
-            push 2\n\
-            add\n\
-            call 0\n\
-            halt\n"
+            r#"push 1
+            push 2
+            add
+            call 0
+            halt
+            "#
                 .to_string(),
         );
         assert_eq!(buf, b"3\n");
