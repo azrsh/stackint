@@ -40,14 +40,16 @@ fn pop(stack: &mut VecDeque<i32>) -> i32 {
     stack.pop_back().unwrap()
 }
 
-fn jump(pc: &mut usize, i: i32) {
-    *pc = i as usize;
+fn jump(_pc: &mut usize, _i: i32) {
+    // *pc = i as usize;
+    unimplemented!();
 }
 
-fn jumpif(stack: &mut VecDeque<i32>, pc: &mut usize, i: i32) {
-    if pop(stack) == 0 {
-        *pc = i as usize;
-    }
+fn jumpif(_stack: &mut VecDeque<i32>, _pc: &mut usize, _i: i32) {
+    // if pop(stack) == 0 {
+    //    *pc = i as usize;
+    // }
+    unimplemented!();
 }
 
 fn add(stack: &mut VecDeque<i32>) {
@@ -68,12 +70,14 @@ fn mul(stack: &mut VecDeque<i32>) {
     push(stack, x * y);
 }
 
-fn set(stack: &mut VecDeque<i32>, variables: &mut HashMap<String, i32>, name: String) {
-    variables.insert(name, pop(stack));
+fn set(_stack: &mut VecDeque<i32>, _variables: &mut HashMap<String, i32>, _name: String) {
+    // variables.insert(name, pop(stack));
+    unimplemented!();
 }
 
-fn get(stack: &mut VecDeque<i32>, variables: &HashMap<String, i32>, name: String) {
-    push(stack, variables[&name]);
+fn get(_stack: &mut VecDeque<i32>, _variables: &HashMap<String, i32>, _name: String) {
+    // push(stack, variables[&name]);
+    unimplemented!();
 }
 
 fn call<W: io::Write>(ctx: &mut RuntimeContext<W>, function_id: u32) {
