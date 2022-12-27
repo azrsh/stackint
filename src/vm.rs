@@ -83,7 +83,7 @@ fn interpret_function<W: io::Write>(ctx: &mut RuntimeContext<W>, source: &str) {
         let line = lines[line_num];
         line_num += 1;
 
-        let line: Vec<&str> = line.trim().split(' ').collect();
+        let line: Vec<&str> = line.trim().split_whitespace().collect();
 
         if line[0] == "push" {
             let i = line[1].parse::<i32>().unwrap();
