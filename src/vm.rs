@@ -29,7 +29,7 @@ struct FunctionCallContext {
 
 enum Function<'a, W: io::Write> {
     Native(fn(ctx: &mut RuntimeContext<'a, W>)),
-    Source(&'a str),
+    Source(&'a [&'a str]),
 }
 
 fn push(stack: &mut VecDeque<i32>, i: i32) {
@@ -137,11 +137,10 @@ fn interpret_instruction<W: io::Write>(
     }
 }
 
-fn interpret_function<W: io::Write>(runtime_ctx: &mut RuntimeContext<W>, function: &str) {
+fn interpret_function<W: io::Write>(runtime_ctx: &mut RuntimeContext<W>, instructions: &[&str]) {
     let mut ctx = FunctionCallContext { line_num: 0 };
-    let lines = function.split('\n').collect::<Vec<&str>>();
-    while ctx.line_num < lines.len() {
-        let instruction = lines[ctx.line_num];
+    while ctx.line_num < instructions.len() {
+        let instruction = instructions[ctx.line_num];
         ctx.line_num += 1;
 
         interpret_instruction(runtime_ctx, &mut ctx, instruction);
@@ -151,6 +150,30 @@ fn interpret_function<W: io::Write>(runtime_ctx: &mut RuntimeContext<W>, functio
 pub fn interpret<W: io::Write>(w: &mut W, source: String) {
     let mut function_table = HashMap::<u32, Function<W>>::new();
 
+    let lines = source.split('\n').collect::<Vec<&str>>();
+    let functions: Vec<_> = lines
+        .iter()
+        .enumerate()
+        .map(|(i, line)| (i, str::trim(line)))
+        .filter_map(|(i, line)| {
+            if line.starts_with("fn") && line.ends_with(":") {
+                let match_trimmed = &line[("fn".len())..(line.len() - ":".len())];
+                let name = match_trimmed.trim();
+                Some((i, name))
+            } else {
+                None
+            }
+        })
+        .chain([(lines.len(), "")])
+        .collect();
+
+    for pair in functions.windows(2) {
+        let prev = pair[0];
+        let next = pair[1];
+
+        function_table.insert(1, Function::Source(&lines[(prev.0 + 1)..next.0]));
+    }
+
     function_table.insert(
         0,
         Function::Native(|ctx: &mut RuntimeContext<W>| {
@@ -158,7 +181,6 @@ pub fn interpret<W: io::Write>(w: &mut W, source: String) {
             writeln!(ctx.w, "{}", i).unwrap();
         }),
     );
-    function_table.insert(1, Function::Source(&source));
 
     call(&mut RuntimeContext::new(w, &function_table), 1);
 }
