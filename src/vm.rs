@@ -171,7 +171,8 @@ mod tests {
         let mut buf = Vec::<u8>::new();
         interpret(
             &mut buf,
-            r#"push 1
+            r#"fn main:
+            push 1
             push 2
             add
             call 0
