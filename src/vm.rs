@@ -6,13 +6,13 @@ use std::process;
 struct RuntimeContext<'a, W: io::Write> {
     w: &'a mut W,
     stack: VecDeque<i32>,
-    function_history: VecDeque<u32>,
+    function_history: VecDeque<String>,
     variables: HashMap<String, i32>,
-    function_table: &'a HashMap<u32, Function<'a, W>>,
+    function_table: &'a HashMap<&'a str, Function<'a, W>>,
 }
 
 impl<'a, W: io::Write> RuntimeContext<'a, W> {
-    fn new(w: &'a mut W, function_table: &'a HashMap<u32, Function<'a, W>>) -> Self {
+    fn new(w: &'a mut W, function_table: &'a HashMap<&'a str, Function<'a, W>>) -> Self {
         Self {
             w,
             stack: VecDeque::new(),
@@ -80,15 +80,15 @@ fn get(_stack: &mut VecDeque<i32>, _variables: &HashMap<String, i32>, _name: Str
     unimplemented!();
 }
 
-fn call<W: io::Write>(ctx: &mut RuntimeContext<W>, function_id: u32) {
-    ctx.function_history.push_back(function_id);
-    match ctx.function_table[ctx.function_history.back().unwrap()] {
+fn call<W: io::Write>(ctx: &mut RuntimeContext<W>, function_id: &str) {
+    ctx.function_history.push_back(function_id.to_owned());
+    match ctx.function_table[function_id] {
         Function::Native(function) => function(ctx),
         Function::Source(source) => interpret_function(ctx, source),
     }
 }
 
-fn ret(function_history: &mut VecDeque<u32>) {
+fn ret(function_history: &mut VecDeque<String>) {
     function_history.pop_back().unwrap();
 }
 
@@ -125,7 +125,7 @@ fn interpret_instruction<W: io::Write>(
     } else if line[0] == "get" {
         get(&mut ctx.stack, &mut ctx.variables, line[1].to_string());
     } else if line[0] == "call" {
-        let id = line[1].parse::<u32>().unwrap();
+        let id = line[1];
         call(ctx, id);
     } else if line[0] == "ret" {
         ret(&mut ctx.function_history);
@@ -148,7 +148,7 @@ fn interpret_function<W: io::Write>(runtime_ctx: &mut RuntimeContext<W>, instruc
 }
 
 pub fn interpret<W: io::Write>(w: &mut W, source: String) {
-    let mut function_table = HashMap::<u32, Function<W>>::new();
+    let mut function_table = HashMap::<&str, Function<W>>::new();
 
     let lines = source.split('\n').collect::<Vec<&str>>();
     let functions: Vec<_> = lines
@@ -171,18 +171,18 @@ pub fn interpret<W: io::Write>(w: &mut W, source: String) {
         let prev = pair[0];
         let next = pair[1];
 
-        function_table.insert(1, Function::Source(&lines[(prev.0 + 1)..next.0]));
+        function_table.insert(prev.1, Function::Source(&lines[(prev.0 + 1)..next.0]));
     }
 
     function_table.insert(
-        0,
+        "print",
         Function::Native(|ctx: &mut RuntimeContext<W>| {
             let i = *ctx.stack.back().unwrap();
             writeln!(ctx.w, "{}", i).unwrap();
         }),
     );
 
-    call(&mut RuntimeContext::new(w, &function_table), 1);
+    call(&mut RuntimeContext::new(w, &function_table), "main");
 }
 
 #[cfg(test)]
