@@ -5,10 +5,25 @@ use std::process;
 
 struct RuntimeContext<'a, W: io::Write> {
     w: &'a mut W,
-    stack: &'a mut VecDeque<i32>,
-    function_history: &'a mut VecDeque<u32>,
-    variables: &'a mut HashMap<String, i32>,
+    stack: VecDeque<i32>,
+    function_history: VecDeque<u32>,
+    variables: HashMap<String, i32>,
     function_table: &'a HashMap<u32, Function<'a, W>>,
+}
+
+impl<'a, W: io::Write> RuntimeContext<'a, W> {
+    fn new(w: &'a mut W, function_table: &'a HashMap<u32, Function<'a, W>>) -> Self {
+        Self {
+            w,
+            stack: VecDeque::new(),
+            function_history: VecDeque::new(),
+            variables: HashMap::new(),
+            function_table,
+        }
+    }
+}
+
+struct FunctionCallContext {
     line_num: usize,
 }
 
@@ -77,35 +92,39 @@ fn halt() {
     process::exit(0);
 }
 
-fn interpret_instruction<W: io::Write>(ctx: &mut RuntimeContext<W>, instruction: &str) {
+fn interpret_instruction<W: io::Write>(
+    ctx: &mut RuntimeContext<W>,
+    fn_ctx: &mut FunctionCallContext,
+    instruction: &str,
+) {
     let line: Vec<&str> = instruction.trim().split_whitespace().collect();
 
     if line[0] == "push" {
         let i = line[1].parse::<i32>().unwrap();
-        push(ctx.stack, i);
+        push(&mut ctx.stack, i);
     } else if line[0] == "pop" {
-        pop(ctx.stack);
+        pop(&mut ctx.stack);
     } else if line[0] == "jump" {
         let i = line[1].parse::<i32>().unwrap();
-        jump(&mut ctx.line_num, i);
+        jump(&mut fn_ctx.line_num, i);
     } else if line[0] == "jumpif" {
         let i = line[1].parse::<i32>().unwrap();
-        jumpif(ctx.stack, &mut ctx.line_num, i);
+        jumpif(&mut ctx.stack, &mut fn_ctx.line_num, i);
     } else if line[0] == "add" {
-        add(ctx.stack);
+        add(&mut ctx.stack);
     } else if line[0] == "sub" {
-        sub(ctx.stack);
+        sub(&mut ctx.stack);
     } else if line[0] == "mul" {
-        mul(ctx.stack);
+        mul(&mut ctx.stack);
     } else if line[0] == "set" {
-        set(ctx.stack, ctx.variables, line[1].to_string());
+        set(&mut ctx.stack, &mut ctx.variables, line[1].to_string());
     } else if line[0] == "get" {
-        get(ctx.stack, ctx.variables, line[1].to_string());
+        get(&mut ctx.stack, &mut ctx.variables, line[1].to_string());
     } else if line[0] == "call" {
         let id = line[1].parse::<u32>().unwrap();
         call(ctx, id);
     } else if line[0] == "ret" {
-        ret(ctx.function_history);
+        ret(&mut ctx.function_history);
         return;
     } else if line[0] == "halt" {
         halt();
@@ -114,20 +133,18 @@ fn interpret_instruction<W: io::Write>(ctx: &mut RuntimeContext<W>, instruction:
     }
 }
 
-fn interpret_function<W: io::Write>(ctx: &mut RuntimeContext<W>, source: &str) {
-    let lines = source.split('\n').collect::<Vec<&str>>();
+fn interpret_function<W: io::Write>(runtime_ctx: &mut RuntimeContext<W>, function: &str) {
+    let mut ctx = FunctionCallContext { line_num: 0 };
+    let lines = function.split('\n').collect::<Vec<&str>>();
     while ctx.line_num < lines.len() {
-        let line = lines[ctx.line_num];
+        let instruction = lines[ctx.line_num];
         ctx.line_num += 1;
 
-        interpret_instruction(ctx, line);
+        interpret_instruction(runtime_ctx, &mut ctx, instruction);
     }
 }
 
 pub fn interpret<W: io::Write>(w: &mut W, source: String) {
-    let mut stack = VecDeque::<i32>::new();
-    let mut function_history = VecDeque::<u32>::new();
-    let mut variables = HashMap::<String, i32>::new();
     let mut function_table = HashMap::<u32, Function<W>>::new();
 
     function_table.insert(
@@ -139,17 +156,7 @@ pub fn interpret<W: io::Write>(w: &mut W, source: String) {
     );
     function_table.insert(1, Function::Source(&source));
 
-    call(
-        &mut RuntimeContext {
-            w,
-            stack: &mut stack,
-            function_history: &mut function_history,
-            variables: &mut variables,
-            function_table: &function_table,
-            line_num: 0,
-        },
-        1,
-    );
+    call(&mut RuntimeContext::new(w, &function_table), 1);
 }
 
 #[cfg(test)]
