@@ -197,7 +197,7 @@ mod tests {
             push 1
             push 2
             add
-            call 0
+            call print
             halt
             "#
             .to_string(),
